@@ -1,0 +1,187 @@
+<html>
+<head>
+<title>SporeStack: Infrastructure made simple</title>
+  <meta charset="UTF-8">
+  <meta name="description" content="Disposable servers for Bitcoin">
+  <meta name="keywords" content="Bitcoin, immutable, disposable, vps, vpn, infrastructure">
+  <meta name="author" content="SporeStack">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<link rel="stylesheet" href="/static/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u">
+<script src="/static/index.bundle.js"></script>
+<script src="/static/markdown.min.js"></script>
+<script src="/static/FileSaver.min.js"></script>
+</head>
+<body>
+
+<a target="_blank" href="https://github.com/sporestack/launch.sporestack.com"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/365986a132ccd6a44c23a9169022c0b5c890c387/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png"></a>
+
+<div class="container">
+<center><h1>SporeStack Launcher</h1></center>
+<script>
+/* Not mine */
+function uuid4(a){return a?(a^Math.random()*16>>a/4).toString(16):([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,uuid4)}
+var uuid = uuid4();
+</script>
+
+<script src="/static/qrcode.min.js"></script>
+
+
+<h3>Launch profile</h3>
+<p>
+    <div id="profile_options">
+    Updating...
+    </div>
+</p>
+
+<script>
+    function launch_optionator() {
+    var launch_request = new XMLHttpRequest();
+    launch_request.open("get", "https://sporestack.com/launch/index.json", true);
+    launch_request.responseType = "json";
+    var desired_profile = null;
+    if (window.location.hash) {
+        /* Strip off # */
+        desired_profile = window.location.hash.substring(1);
+    }
+    launch_request.onload = function() {
+        var options = "<select id='profile'>";
+        var selected = null;
+        for (profile in launch_request.response) {
+            if (launch_request.response[profile]['name'] === desired_profile) {
+                selected = 'selected="selected"'
+            }
+            options += '<option value=' + launch_request.response[profile]['name'] + ' ' + selected + '>' + launch_request.response[profile]['human_name'] + '</option>';
+            selected = null;
+        }
+        options += '</select>'
+        var element = document.getElementById('profile_options');
+        element.innerHTML = options;
+        launch();
+    };
+    launch_request.send();
+    }
+</script>
+
+<h3>Datacenter</h3>
+<p>
+    <div id="dcid_options">
+    Updating...
+    </div>
+</p>
+
+<script>
+    var request = new XMLHttpRequest();
+    request.open("get", "https://sporestack.com/node/options", true);
+    request.responseType = "json";
+    request.onload = function() {
+        var options = "<select id='dcid'>";
+        for (dcid in request.response.dcid) {
+            options += '<option value=' + dcid + '>' + request.response.dcid[dcid]['name'] + '</option>'     };
+        options += '</select>'
+        var element = document.getElementById('dcid_options');
+        element.innerHTML = options;
+        launch_optionator();
+    };
+    request.send();
+</script>
+
+<p>
+Days to live: <input id="days" type="number" value="1" min="1" max="28">
+</p>
+
+<h3>Launch profile description</h3>
+<div id="description"></div>
+
+<div id="bitcoin_uri"></div>
+
+<br/><br/>
+<p>
+<pre><tt><div id="stdout"></div></tt></pre>
+</p>
+<input id="stdout_button" disabled=1 type="button" value="Save as file" onclick="saveAs(file);">
+
+<script>
+function sleep (time) {
+  return new Promise((resolve) => setTimeout(resolve, time));
+}
+var oneatatime = false;
+var old_days = -1;
+var old_satoshis;
+var mimetype;
+var every_other = true;
+var node = {};
+var file;
+function launch() {
+sleep(2000).then(() => {
+    launch();
+});
+    if (oneatatime === true) {
+        if (old_days != -1) {
+            return;
+        }
+    } else {
+        oneatatime = true;
+    }
+    var dcid_element = document.getElementById('dcid');
+    var profile_element = document.getElementById('profile');
+    var options = {};
+    options['uuid'] = uuid;
+    options['dcid'] = dcid_element.options[dcid_element.selectedIndex].value;
+    options['days'] = document.getElementById('days').value;
+    options['profile'] = profile_element.options[profile_element.selectedIndex].value;
+    window.location.hash = options['profile'];
+    var element = document.getElementById('bitcoin_uri');
+    if (old_days != options['days']) {
+        element.innerHTML = 'Updating...';
+        old_days = options['days'];
+    }
+    var request = new XMLHttpRequest();
+    request.open("post", "/launch", true);
+    request.setRequestHeader("Content-type", "application/json");
+    request.responseType = "json";
+    request.onload = function() {
+        if (request.status === 200) {
+            mimetype = request.response.mimetype;
+            if (request.response.stdout != null) {
+                /* Lock out once booted hack. */
+                oneatatime = true;
+                /* FIXME */
+                file = new File ([request.response.stdout], "openvpn.ovpn", {type: mimetype});
+                document.getElementById('stdout_button').disabled = false;
+                element.innerHTML = '';
+                var stdout_element = document.getElementById('stdout');
+                stdout_element.innerHTML = request.response.stdout;
+                return;
+            } else if (request.response.payment_status === false) {
+                var bitcoin_uri = ('bitcoin:' + request.response.address + '?amount=' + sb.toBitcoin(request.response.satoshis));
+                if (old_satoshis != request.response.satoshis) {
+                    element.innerHTML = ('<h3>Pay with Bitcoin</h3><a href="' + bitcoin_uri + '"><div id="qr"></div></a>');
+                    new QRCode(document.getElementById("qr"), bitcoin_uri);
+                    old_satoshis = request.response.satoshis;
+                }
+            } else {
+                /* Try to look like something is happening. */
+                if (every_other === false) {
+                    element.innerHTML = 'Payment accepted. Processing.. (Will take about two minutes. Don\'t refresh or leave this page!)';
+                    every_other = true;
+                } else {
+                    element.innerHTML = 'Payment accepted. Processing... (Will take about two miniutes. Don\'t refresh or leave this page!)';
+                    every_other = false;
+                }
+            }
+            var description_element = document.getElementById('description');
+            description_element.innerHTML = markdown.toHTML(request.response.description);
+            /* Yucky */
+            oneatatime = false;
+        } else {
+            /* Seems broken. Always gives null. */
+            element.innerHTML = request.response;
+        }
+    };
+    request.send(JSON.stringify(options));
+}
+</script>
+
+</div>
+</body>
+</html>
