@@ -84,6 +84,6 @@ service syslogd restart
 
 progress 'Writing rc.local'
 echo '#!/bin/sh
-cd /root/service; gunicorn  --workers 10 -b 0.0.0.0:443 -b [::]:443 --keyfile=ssl/domain.key --certfile=ssl/chained.pem  main:__hug_wsgi__ >> /var/log/uwsgi 2>&1 &' > /etc/rc.local
+cd /root/service; gunicorn  --workers 10 -b 0.0.0.0:443 -b [::]:443 --keyfile=ssl/domain.key --certfile=ssl/chained.pem --ssl-version 5 --ciphers EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH main:__hug_wsgi__ >> /var/log/uwsgi 2>&1 &' > /etc/rc.local
 # cd /root/.datadog-agent; bin/agent >> /var/log/datadoge 2>&1 &' > /etc/rc.local
 chmod 500 /etc/rc.local
