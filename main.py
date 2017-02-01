@@ -40,17 +40,9 @@ def pulse(metric, gauge=None):
         debug('Sending stat: {}: {}'.format(full_metric, gauge))
 
 
-@hug.get('/static/{static_file}', output=hug.output_format.html)
-def static(static_file, response):
-    if '..' in static_file:
-        raise
-    try:
-        # Does not work on non-ASCII files.
-        with open('static/{}'.format(static_file)) as fp:
-            return fp.read()
-    except:
-        response.status = HTTP_404
-        return 'Not found'
+@hug.static('/static')
+def static():
+    return('static',)
 
 
 @hug.get('/.well-known/acme-challenge/{challenge}',
