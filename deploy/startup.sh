@@ -28,8 +28,18 @@ progress 'Starting pkg upgrade'
 pkg upgrade
 
 progress 'Starting pkg install'
-pkg install ca_root_nss gdnsd2 pwgen curl python3
+pkg install ca_root_nss gdnsd2 pwgen curl python3 git
 chmod 700 /root
+
+cd /root
+
+git clone https://github.com/teran-mckinney/redirecthttpd.git
+
+cd redirecthttpd
+
+make install
+
+cd /root
 
 python3 -m ensurepip
 
@@ -84,6 +94,17 @@ service syslogd restart
 
 progress 'Writing rc.local'
 echo '#!/bin/sh
-cd /root/service; gunicorn  --workers 10 -b 0.0.0.0:443 -b [::]:443 --keyfile=ssl/domain.key --certfile=ssl/chained.pem --ssl-version 5 --ciphers EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH main:__hug_wsgi__ >> /var/log/uwsgi 2>&1 &' > /etc/rc.local
-# cd /root/.datadog-agent; bin/agent >> /var/log/datadoge 2>&1 &' > /etc/rc.local
+# redirecthttpd only does v6 :-/
+sysctl net.inet6.ip6.v6only=0
+echo launching redirecthttpd
+# This is weird. Does not output anything, but it hangs up ssh if it launches successfully, unless we redirect away?
+# Some bug that I should fix.
+redirecthttpd > /dev/null 2>&1 &
+echo launching gunicorn
+cd /root/service; gunicorn  --workers 10 -b 0.0.0.0:443 -b [::]:443 --keyfile=ssl/domain.key --certfile=ssl/chained.pem --ssl-version 5 --ciphers EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH main:__hug_wsgi__ >> /var/log/uwsgi 2>&1 &
+echo all done
+# FIXME
+cd /root/.datadog-agent; bin/agent >> /var/log/datadoge 2>&1 &' > /etc/rc.local
 chmod 500 /etc/rc.local
+
+mkdir /root/service

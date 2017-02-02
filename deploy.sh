@@ -1,8 +1,11 @@
 #!/bin/sh
 
-DAYS=28
+DAYS=0
 
 # Returns hostname
 node=$(sporestack spawn --startupscript deploy/startup.sh --group launch.sporestack.com --days $DAYS $1 $2)
 
-tar -cvzf - .  | sporestack ssh $node --command 'mkdir /root/service; cd /root/service; tar -xzf -; pip3 install -r requirements.txt; /etc/rc.local'
+tar -czf - .  | sporestack ssh $node --command 'tar -xzvf - -C /root/service'
+
+sporestack ssh $node --command 'cd /root/service; pip3 install -r requirements.txt'
+sporestack ssh $node --command '/etc/rc.local'
