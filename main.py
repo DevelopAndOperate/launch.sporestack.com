@@ -42,6 +42,7 @@ def pulse(metric, gauge=None):
 
 @hug.static('/static')
 def static():
+    pulse('static')
     return('static',)
 
 
@@ -58,6 +59,7 @@ def acmechallenge(challenge):
 
 @hug.get('/', output=hug.output_format.html)
 def index():
+    pulse('index')
     return render('index.html')
 
 
@@ -71,9 +73,11 @@ def launch(uuid,
     """
     Launch a SporeStack ndoe with a given profile.
     """
+    pulse('launch.hit')
     try:
         settings = sporestack.node_get_launch_profile(profile)
     except:
+        pulse('launch.bad_profile')
         response.status = HTTP_403
         return 'Profile doesn\'t exist.'
     osid = settings['osid']
@@ -106,6 +110,8 @@ def launch(uuid,
         output['payment_status'] = node.payment_status
         output['address'] = node.address
         output['satoshis'] = node.satoshis
+        pulse('launch.dcid', dcid)
+        pulse('launch.satoshis', node.satoshis)
         pulse('launch.yuck_try')
     except:
         pulse('launch.yuck_except')
