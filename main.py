@@ -6,9 +6,8 @@ from socket import create_connection
 from subprocess import Popen, PIPE
 
 import hug
-import jinja2
 import sporestack
-from falcon import HTTP_403, HTTP_404
+from falcon import HTTP_403
 from datadog import statsd
 
 DEBUG = True
@@ -21,13 +20,6 @@ def debug(message):
     if DEBUG is True:
         print(message)
     return message
-
-
-def render(template, page={}):
-    template = jinja2.Environment(
-        loader=jinja2.FileSystemLoader('./')
-        ).get_template(template)
-    return str(template.render(page=page))
 
 
 def pulse(metric, gauge=None):
@@ -60,14 +52,13 @@ def acmechallenge(challenge):
 @hug.get('/', output=hug.output_format.html)
 def index():
     pulse('index')
-    return render('index.html')
+    with open('index.html') as fp:
+        return fp.read()
 
 
 @hug.post('/launch',
           output=hug.output_format.json)
 def launch(uuid,
-           dcid: hug.types.number,
-           days: hug.types.number,
            profile,
            response):
     """
@@ -76,72 +67,46 @@ def launch(uuid,
     pulse('launch.hit')
     try:
         settings = sporestack.node_get_launch_profile(profile)
+        postlaunch = settings['postlaunch']
+        pulse('launch.have_profile')
     except:
         pulse('launch.bad_profile')
         response.status = HTTP_403
         return 'Profile doesn\'t exist.'
-    osid = settings['osid']
-    flavor = settings['flavor']
-    startupscript = settings['startupscript']
-    postlaunch = settings['postlaunch']
-    cloudinit = settings['cloudinit']
-    output = {'payment_status': False,
-              'creation_status': False,
-              'address': None,
-              'satoshis': None,
-              'stdout': None,
+    output = {'stdout': None,
               'stderr': None,
               'return_code': None,
-              'description': settings['description'],
-              'mimetype': settings['mimetype']}
-    # FIXME
-    # This is probably the worst thing anyone could do, and I'm doing it.
-    # Shameless.
-    # So sporestack.node() throws 401 on the creation_status after...
+              'ready': False}
+    hostname = uuid + '.node.sporestack.com'
+    pulse('launch.about_to_socket')
     try:
-        node = sporestack.node(days=days,
-                               sshkey=sshkey,
-                               unique=uuid,
-                               osid=osid,
-                               dcid=dcid,
-                               flavor=flavor,
-                               startupscript=startupscript,
-                               cloudinit=cloudinit)
-        output['payment_status'] = node.payment_status
-        output['address'] = node.address
-        output['satoshis'] = node.satoshis
-        pulse('launch.dcid', dcid)
-        pulse('launch.satoshis', node.satoshis)
-        pulse('launch.yuck_try')
+        pulse('launch.tryingsocket')
+        socket = create_connection((hostname, 22), timeout=2)
+        socket.close()
     except:
-        pulse('launch.yuck_except')
-        output['payment_status'] = True
-        output['creation_status'] = True
-        hostname = uuid + '.node.sporestack.com'
-        try:
-            socket = create_connection((hostname, 22), timeout=2)
-            socket.close()
-        except:
-            pulse('launch.not_ready')
-            return output
-        command = ['ssh', '-l', 'root', hostname,
-                   '-i', 'id_rsa',
-                   '-oStrictHostKeyChecking=no',
-                   '-oBatchMode=yes',
-                   '-oUserKnownHostsFile=/dev/null']
-        process = Popen(command, stdin=PIPE, stderr=PIPE, stdout=PIPE)
-        postlaunch = bytes(postlaunch, 'utf-8')
-        output['stdout'], output['stderr'] = process.communicate(postlaunch)
-        output['return_code'] = process.wait()
-        # Delete SSH key. Kinda redundant, hrm.
-        command = ['ssh', '-l', 'root', hostname,
-                   '-i', 'id_rsa',
-                   '-oBatchMode=yes',
-                   '-oStrictHostKeyChecking=no',
-                   '-oUserKnownHostsFile=/dev/null',
-                   'rm /root/.ssh/authorized_keys']
-        # FIXME
-        # process = Popen(command, stdin=PIPE, stderr=PIPE, stdout=PIPE)
-        # process.wait()
-        pulse('launch.ready')
+        pulse('launch.not_ready')
+        return output
+    pulse('launch.made_it_past_socket')
+    command = ['ssh', '-l', 'root', hostname,
+               '-i', 'id_rsa',
+               '-oStrictHostKeyChecking=no',
+               '-oBatchMode=yes',
+               '-oUserKnownHostsFile=/dev/null']
+    process = Popen(command, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+    postlaunch = bytes(postlaunch, 'utf-8')
+    output['stdout'], output['stderr'] = process.communicate(postlaunch)
+    output['return_code'] = process.wait()
+    pulse('launch.return_code', output['return_code'])
+    # Delete SSH key.
+    command = ['ssh', '-l', 'root', hostname,
+               '-i', 'id_rsa',
+               '-oBatchMode=yes',
+               '-oStrictHostKeyChecking=no',
+               '-oUserKnownHostsFile=/dev/null',
+               'rm /root/.ssh/authorized_keys']
+    process = Popen(command, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+    ssh_key_delete_return_code = process.wait()
+    output['ready'] = True
+    pulse('launch.ssh_key_delete_return_code', ssh_key_delete_return_code)
+    pulse('launch.ready')
     return output

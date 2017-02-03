@@ -35,7 +35,25 @@ var uuid = uuid4();
 </p>
 
 <script>
-    function launch_optionator() {
+function get_profile() {
+    clearbitcoin();
+    var description_element = document.getElementById('description');
+    var profile_element = document.getElementById('profile');
+    var profile_name = profile_element.options[profile_element.selectedIndex].value;
+    var profile_request = new XMLHttpRequest();
+    profile_request.open("get", "https://sporestack.com/launch/" + profile_name + ".json", true);
+    profile_request.responseType = "json";
+    profile_request.onload = function() {
+        profile = profile_request.response;
+        window.location.hash = profile['name'];
+        description_element.innerHTML = markdown.toHTML(profile['description']);
+        pay();
+    }
+    description_element.innerHTML = 'Updating...';
+    profile_request.send();
+}
+
+function launch_optionator() {
     var launch_request = new XMLHttpRequest();
     launch_request.open("get", "https://sporestack.com/launch/index.json", true);
     launch_request.responseType = "json";
@@ -45,7 +63,7 @@ var uuid = uuid4();
         desired_profile = window.location.hash.substring(1);
     }
     launch_request.onload = function() {
-        var options = "<select id='profile'>";
+        var options = "<select id='profile' onchange='get_profile();'>";
         var selected = null;
         for (profile in launch_request.response) {
             if (launch_request.response[profile]['name'] === desired_profile) {
@@ -57,10 +75,10 @@ var uuid = uuid4();
         options += '</select>'
         var element = document.getElementById('profile_options');
         element.innerHTML = options;
-        launch();
+        get_profile();
     };
     launch_request.send();
-    }
+}
 </script>
 
 <h3>Datacenter</h3>
@@ -75,7 +93,7 @@ var uuid = uuid4();
     request.open("get", "https://sporestack.com/node/options", true);
     request.responseType = "json";
     request.onload = function() {
-        var options = "<select id='dcid'>";
+        var options = "<select id='dcid' onchange='clearbitcoin();'>";
         for (dcid in request.response.dcid) {
             options += '<option value=' + dcid + '>' + request.response.dcid[dcid]['name'] + '</option>'     };
         options += '</select>'
@@ -87,7 +105,7 @@ var uuid = uuid4();
 </script>
 
 <p>
-Days to live: <input id="days" type="number" value="1" min="1" max="28">
+Days to live: <input id="days" type="number" value="1" min="1" max="28" onchange='clearbitcoin();'>
 </p>
 
 <h3>Launch profile description</h3>
@@ -95,90 +113,103 @@ Days to live: <input id="days" type="number" value="1" min="1" max="28">
 
 <div id="bitcoin_uri"></div>
 
+<div id="postlaunch" style="visibility:hidden">
 <br/><br/>
 <p>
 <pre><tt><div id="stdout"></div></tt></pre>
 </p>
-<input id="stdout_button" disabled=1 type="button" value="Save as file" onclick="saveAs(file);">
+<input id="stdout_button" type="button" value="Save as file" onclick="saveAs(file);">
+</div>
 
 <script>
-function sleep (time) {
-  return new Promise((resolve) => setTimeout(resolve, time));
-}
-var oneatatime = false;
-var old_days = -1;
-var old_satoshis;
+old_satoshis = 0;
 var mimetype;
 var every_other = true;
 var node = {};
 var file;
-function launch() {
-sleep(2000).then(() => {
-    launch();
-});
-    if (oneatatime === true) {
-        if (old_days != -1) {
-            return;
-        }
-    } else {
-        oneatatime = true;
-    }
+ready = false;
+paid = false;
+
+
+/* Fixme */
+element = document.getElementById('bitcoin_uri');
+
+function clearbitcoin() {
+    console.log('clearing');
+    element.innerHTML = 'Updating...';
+    /* Force a refresh. */
+    old_satoshis = 0;
+}
+
+function pay() {
     var dcid_element = document.getElementById('dcid');
-    var profile_element = document.getElementById('profile');
     var options = {};
-    options['uuid'] = uuid;
-    options['dcid'] = dcid_element.options[dcid_element.selectedIndex].value;
-    options['days'] = document.getElementById('days').value;
-    options['profile'] = profile_element.options[profile_element.selectedIndex].value;
-    window.location.hash = options['profile'];
-    var element = document.getElementById('bitcoin_uri');
-    if (old_days != options['days']) {
-        element.innerHTML = 'Updating...';
-        old_days = options['days'];
-    }
+    options['unique'] = uuid;
+    options['dcid'] = parseInt(dcid_element.options[dcid_element.selectedIndex].value);
+    options['days'] = parseInt(document.getElementById('days').value);
+    options['osid'] = parseInt(profile['osid']);
+    options['startupscript'] = profile['startupscript'];
+    options['sshkey'] = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDSs1NOWo6fOXko5I6tgrZEktNuZcFYNSGIpp1MPEyPgTgDSI8JQQ/bm76DIs6DUCrhqcKjAn28koN5Uyj9Pb0OrUwNDjOUhQ//6r/5F/pAKUcQ/3uk7XxAPOx+fVCYR9zwuNNGysExMUyUSGTYhZ2cfE+65eaC3Esbne5M6J7Ul7HP8CCBfeICqVvrIJcopgacD069sxtIdxWOyN56N2FktlV4C2YlQsxf1SJvqo193zlk2yagdUHleSkmP/IqW8yMNdltOAelYNd9VCfW8ROSA0yIj/zm5NZ7JdMoBa6In+gNUkNf4R7GHqHuEcCRELvV4ePlWEY6Oc+6b7aLN4Yj';
     var request = new XMLHttpRequest();
-    request.open("post", "/launch", true);
+    request.open("post", "https://sporestack.com/node", true);
     request.setRequestHeader("Content-type", "application/json");
     request.responseType = "json";
     request.onload = function() {
-        if (request.status === 200) {
-            mimetype = request.response.mimetype;
-            if (request.response.stdout != null) {
-                /* Lock out once booted hack. */
-                oneatatime = true;
-                /* FIXME */
-                file = new File ([request.response.stdout], "openvpn.ovpn", {type: mimetype});
-                document.getElementById('stdout_button').disabled = false;
-                element.innerHTML = '';
-                var stdout_element = document.getElementById('stdout');
-                stdout_element.innerHTML = request.response.stdout;
-                return;
-            } else if (request.response.payment_status === false) {
+        console.log('pay onload');
+        if (request.status != 200) {
+            element.innerHTML = request.statusText;
+            return;
+        }
+        if (request.response.hostname === null) {
+            if (request.response.payment_status === false) {
+                console.log('not yet paid');
                 var bitcoin_uri = ('bitcoin:' + request.response.address + '?amount=' + sb.toBitcoin(request.response.satoshis));
                 if (old_satoshis != request.response.satoshis) {
+                    console.log('satoshis changed.');
                     element.innerHTML = ('<h3>Pay with Bitcoin</h3><a href="' + bitcoin_uri + '"><div id="qr"></div></a>');
                     new QRCode(document.getElementById("qr"), bitcoin_uri);
                     old_satoshis = request.response.satoshis;
                 }
             } else {
-                /* Try to look like something is happening. */
-                if (every_other === false) {
-                    element.innerHTML = 'Payment accepted. Processing.. (Will take about two minutes. Don\'t refresh or leave this page!)';
-                    every_other = true;
-                } else {
-                    element.innerHTML = 'Payment accepted. Processing... (Will take about two miniutes. Don\'t refresh or leave this page!)';
-                    every_other = false;
-                }
+                element.innerHTML = 'Payment received. Processing...';
             }
-            var description_element = document.getElementById('description');
-            description_element.innerHTML = markdown.toHTML(request.response.description);
-            /* Yucky */
-            oneatatime = false;
+            /* Try again in 5 seconds. */
+            setTimeout(function() { pay(); }, 5000);
         } else {
-            /* Seems broken. Always gives null. */
-            element.innerHTML = request.response;
+            if (profile['postlaunch'] === null) {
+                console.log('no postlaunch');
+                element.innerHTML = 'Server launched and will be online shortly: ' + request.response.hostname;
+            } else {
+                console.log('has postlaunch');
+                element.innerHTML = 'Server created. (Will take about two minutes. Don\'t refresh or leave this page!) Booting.';
+                setTimeout(function() { launch(uuid, profile['name']); }, 30000);
+            }
         }
-    };
+    }
+    request.send(JSON.stringify(options));
+}
+
+function launch(uuid, profile) {
+    console.log('in launch');
+    var options = {};
+    options['uuid'] = uuid;
+    options['profile'] = profile;
+    var request = new XMLHttpRequest();
+    request.open("post", "/launch", true);
+    request.setRequestHeader("Content-type", "application/json");
+    request.responseType = "json";
+    request.onload = function() {
+        if (request.response.ready === true) {
+            file = new File ([request.response.stdout], "openvpn.ovpn", {type: profile['mimetype']});
+            element.innerHTML = '';
+            var stdout_element = document.getElementById('stdout');
+            stdout_element.innerHTML = request.response.stdout;
+            document.getElementById('postlaunch').style.visibility = "visible";
+        } else {
+            element.innerHTML += '.';
+            setTimeout(function() { launch(uuid, profile); }, 5000);
+        }
+    }
     request.send(JSON.stringify(options));
 }
 </script>
