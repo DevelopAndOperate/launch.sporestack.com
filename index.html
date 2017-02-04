@@ -158,6 +158,7 @@ function pay() {
         console.log('pay onload');
         if (request.status != 200) {
             element.innerHTML = request.statusText;
+            setTimeout(function() { pay(); }, 5000);
             return;
         }
         if (request.response.hostname === null) {
