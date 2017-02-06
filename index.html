@@ -5,11 +5,12 @@
   <meta name="description" content="Disposable servers for Bitcoin">
   <meta name="keywords" content="Bitcoin, immutable, disposable, vps, vpn, infrastructure">
   <meta name="author" content="SporeStack">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<link rel="stylesheet" href="/static/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u">
-<script src="/static/index.bundle.js"></script>
-<script src="/static/markdown.js"></script>
-<script src="/static/FileSaver.min.js"></script>
+  <meta name="google-site-verification" content="EXHQ_K11nLCZzZkUv1cDH_6BBOAX6Wk6idswYAO4BAM" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+  <link rel="stylesheet" href="/static/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u">
+  <script src="/static/index.bundle.js"></script>
+  <script src="/static/markdown.js"></script>
+  <script src="/static/FileSaver.min.js"></script>
 </head>
 <body>
 
@@ -133,7 +134,6 @@ paid = false;
 element = document.getElementById('bitcoin_uri');
 
 function clearbitcoin() {
-    console.log('clearing');
     element.innerHTML = 'Updating...';
     /* Force a refresh. */
     old_satoshis = 0;
@@ -142,7 +142,7 @@ function clearbitcoin() {
 function launched_servers() {
     var launched_servers_element = document.getElementById('launched_servers');
     launched_servers_element.innerHTML = "";
-    var epoch = Math.round(new Date().getTime()/1000)
+    var epoch = Date.now() / 1000 | 0;
     for (var hostname in window.localStorage) {
         /* This seems to give us getItem(), setItem(), etc. Ignore those. */
         if (!hostname.endsWith('node.sporestack.com')) {
@@ -150,7 +150,7 @@ function launched_servers() {
         }
         var server = JSON.parse(window.localStorage[hostname]);
         if (server['end_of_life'] < epoch) {
-            console.log(server['hostname'] + " expired.");
+            console.log("launch.sporestack.com: " + server['hostname'] + " expired.");
             continue;
         }
         document.getElementById('launched_any_at_all').style.visibility = "visible";
@@ -159,7 +159,6 @@ function launched_servers() {
         launched_servers_element.innerHTML += "<b>Time left in seconds:</b> " + time_to_live;
         if ("stdout" in server) {
             var filename = "file" + hostname.split("-")[0];
-            console.log(filename);
             window[filename] =new File ([server['stdout']], "openvpn.ovpn", {type: server['mimetype']});
             launched_servers_element.innerHTML += '<br/><input type="button" value="Save output" onclick="saveAs(' + filename + ');"><br/>'
         }
@@ -182,6 +181,7 @@ function pay() {
     options['dcid'] = parseInt(dcid_element.options[dcid_element.selectedIndex].value);
     options['days'] = parseInt(document.getElementById('days').value);
     options['osid'] = parseInt(profile['osid']);
+    options['flavor'] = parseInt(profile['flavor']);
     options['startupscript'] = profile['startupscript'];
     options['sshkey'] = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDSs1NOWo6fOXko5I6tgrZEktNuZcFYNSGIpp1MPEyPgTgDSI8JQQ/bm76DIs6DUCrhqcKjAn28koN5Uyj9Pb0OrUwNDjOUhQ//6r/5F/pAKUcQ/3uk7XxAPOx+fVCYR9zwuNNGysExMUyUSGTYhZ2cfE+65eaC3Esbne5M6J7Ul7HP8CCBfeICqVvrIJcopgacD069sxtIdxWOyN56N2FktlV4C2YlQsxf1SJvqo193zlk2yagdUHleSkmP/IqW8yMNdltOAelYNd9VCfW8ROSA0yIj/zm5NZ7JdMoBa6In+gNUkNf4R7GHqHuEcCRELvV4ePlWEY6Oc+6b7aLN4Yj';
     var request = new XMLHttpRequest();
@@ -189,7 +189,6 @@ function pay() {
     request.setRequestHeader("Content-type", "application/json");
     request.responseType = "json";
     request.onload = function() {
-        console.log('pay onload');
         if (request.status != 200) {
             element.innerHTML = request.statusText;
             setTimeout(function() { pay(); }, 3000);
@@ -197,10 +196,8 @@ function pay() {
         }
         if (request.response.hostname === null) {
             if (request.response.payment_status === false) {
-                console.log('not yet paid');
                 var bitcoin_uri = ('bitcoin:' + request.response.address + '?amount=' + sb.toBitcoin(request.response.satoshis));
                 if (old_satoshis != request.response.satoshis) {
-                    console.log('satoshis changed.');
                     element.innerHTML = ('<h3>Pay with Bitcoin</h3><a href="' + bitcoin_uri + '"><div id="qr"></div></a>');
                     new QRCode(document.getElementById("qr"), bitcoin_uri);
                     old_satoshis = request.response.satoshis;
@@ -218,11 +215,9 @@ function pay() {
                                "profile": profile['human_name']
                               }
             if (profile['postlaunch'] === null) {
-                console.log('no postlaunch');
                 element.innerHTML = 'Server launched and will be online shortly: ' + request.response.hostname;
                 save_server(launched_server);
             } else {
-                console.log('has postlaunch');
                 element.innerHTML = 'Server created. (Will take about two minutes. Don\'t refresh or leave this page!) Booting.';
                 setTimeout(function() { launch(uuid, profile['name']); }, 30000);
             }
@@ -232,7 +227,6 @@ function pay() {
 }
 
 function launch(uuid, profile) {
-    console.log('in launch');
     var options = {};
     options['uuid'] = uuid;
     options['profile'] = profile;
