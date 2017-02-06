@@ -110,15 +110,13 @@ Days to live: <input id="days" type="number" value="1" min="1" max="28" onchange
 
 <h3>Launch profile description</h3>
 <div id="description"></div>
-
+<br/>
 <div id="bitcoin_uri"></div>
-
-<div id="postlaunch" style="visibility:hidden">
+<br/>
+<div id="launched_any_at_all" style="visibility:hidden">
+<h3>Launched Servers</h3>
+<div id="launched_servers"></div>
 <br/><br/>
-<p>
-<pre><tt><div id="stdout"></div></tt></pre>
-</p>
-<input id="stdout_button" type="button" value="Save as file" onclick="saveAs(file);">
 </div>
 
 <script>
@@ -141,6 +139,42 @@ function clearbitcoin() {
     old_satoshis = 0;
 }
 
+function launched_servers() {
+    var launched_servers_element = document.getElementById('launched_servers');
+    launched_servers_element.innerHTML = "";
+    var epoch = Math.round(new Date().getTime()/1000)
+    for (var hostname in window.localStorage) {
+        /* This seems to give us getItem(), setItem(), etc. Ignore those. */
+        if (!hostname.endsWith('node.sporestack.com')) {
+            continue;
+        }
+        var server = JSON.parse(window.localStorage[hostname]);
+        if (server['end_of_life'] < epoch) {
+            console.log(server['hostname'] + " expired.");
+            continue;
+        }
+        document.getElementById('launched_any_at_all').style.visibility = "visible";
+        var time_to_live = server['end_of_life'] - epoch;
+        launched_servers_element.innerHTML += "<h4>" + server["hostname"] + "</h4>" + "<b>Profile:</b> " + server["profile"] + "<br/>";
+        launched_servers_element.innerHTML += "<b>Time left in seconds:</b> " + time_to_live;
+        if ("stdout" in server) {
+            var filename = "file" + hostname.split("-")[0];
+            console.log(filename);
+            window[filename] =new File ([server['stdout']], "openvpn.ovpn", {type: server['mimetype']});
+            launched_servers_element.innerHTML += '<br/><input type="button" value="Save output" onclick="saveAs(' + filename + ');"><br/>'
+        }
+        launched_servers_element.innerHTML += '<hr>'
+    }
+}
+
+launched_servers();
+
+function save_server(launched_server) {
+    hostname = launched_server['hostname'];
+    window.localStorage.setItem(hostname, JSON.stringify(launched_server));
+    launched_servers();
+}
+
 function pay() {
     var dcid_element = document.getElementById('dcid');
     var options = {};
@@ -158,7 +192,7 @@ function pay() {
         console.log('pay onload');
         if (request.status != 200) {
             element.innerHTML = request.statusText;
-            setTimeout(function() { pay(); }, 5000);
+            setTimeout(function() { pay(); }, 3000);
             return;
         }
         if (request.response.hostname === null) {
@@ -177,9 +211,16 @@ function pay() {
             /* Try again in 5 seconds. */
             setTimeout(function() { pay(); }, 5000);
         } else {
+            launched_server = {
+                               "hostname": request.response.hostname,
+                               "end_of_life": request.response.end_of_life,
+                               "mimetype": profile['mimetype'],
+                               "profile": profile['human_name']
+                              }
             if (profile['postlaunch'] === null) {
                 console.log('no postlaunch');
                 element.innerHTML = 'Server launched and will be online shortly: ' + request.response.hostname;
+                save_server(launched_server);
             } else {
                 console.log('has postlaunch');
                 element.innerHTML = 'Server created. (Will take about two minutes. Don\'t refresh or leave this page!) Booting.';
@@ -201,11 +242,9 @@ function launch(uuid, profile) {
     request.responseType = "json";
     request.onload = function() {
         if (request.response.ready === true) {
-            file = new File ([request.response.stdout], "openvpn.ovpn", {type: profile['mimetype']});
-            element.innerHTML = '';
-            var stdout_element = document.getElementById('stdout');
-            stdout_element.innerHTML = request.response.stdout;
-            document.getElementById('postlaunch').style.visibility = "visible";
+            element.innerHTML = 'Server ready.';
+            launched_server['stdout'] = request.response.stdout;
+            save_server(launched_server);
         } else {
             element.innerHTML += '.';
             setTimeout(function() { launch(uuid, profile); }, 5000);

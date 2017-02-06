@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 DOMAIN=launch.sporestack.com
 HOSTMASTER=noonehome
 
@@ -70,20 +72,40 @@ echo 'syslogd_flags="-ss"' >> /etc/rc.conf
 
 service syslogd restart
 
-
-# Let the boot process start rc.local on its own.
-/etc/rc.local
-
-# progress 'Starting Datadog'
-# DD_API_KEY=nope sh -c "$(curl -L https://raw.githubusercontent.com/DataDog/dd-agent/master/packaging/datadog-agent/source/setup_agent.sh)"
+echo 'sendmail_enable="NO"
+sendmail_submit_enable="NO"
+sendmail_outbound_enable="NO"
+sendmail_msp_queue_enable="NO"' >> /etc/rc.conf
 
 progress 'Writing rc.local'
 echo '#!/bin/sh
 
-cd /root/service; /usr/local/bin/uwsgi --http-to-https 0.0.0.0:80 --http-to-https [::]:80 -L -p 12 --limit-post 131072 --master --wsgi-file main.py --callable __hug_wsgi__ --https [::]:443,ssl/chained.pem,ssl/domain.key --https :443,ssl/chained.pem,ssl/domain.key >> /var/log/uwsgi 2>&1 &
+cd /root/service; /usr/local/bin/uwsgi --http-to-https 0.0.0.0:80 --http-to-https [::]:80 -L -p 5 --limit-post 131072 --master --wsgi-file main.py --callable __hug_wsgi__ --https [::]:443,ssl/chained.pem,ssl/domain.key --https :443,ssl/chained.pem,ssl/domain.key >> /var/log/uwsgi 2>&1 &
 
-# FIXME
 cd /root/.datadog-agent; bin/agent >> /var/log/datadoge 2>&1 &' > /etc/rc.local
 chmod 500 /etc/rc.local
 
 mkdir /root/service
+
+# Only run this when ready.
+
+echo '#!/bin/sh
+# Self audit script
+
+set -e
+
+host launch.sporestack.com 127.0.0.1 | grep "has address"
+host launch.sporestack.com 127.0.0.1 | grep "has IPv6 address"
+
+echo "127.0.0.1 launch.sporestack.com" >> /etc/hosts
+
+# Should redirect to HTTPS
+fetch -o - http://launch.sporestack.com/ | grep SporeStack
+
+# Just in case.
+fetch -o - https://launch.sporestack.com/ | grep SporeStack
+
+sed -i "" "/launch.sporestack.com/d" /etc/hosts
+' > /root/audit.sh
+
+chmod 555 /root/audit.sh

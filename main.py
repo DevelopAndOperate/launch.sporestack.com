@@ -50,8 +50,9 @@ def acmechallenge(challenge):
 
 
 @hug.get('/', output=hug.output_format.html)
-def index():
+def index(request):
     pulse('index')
+    debug('Referrer: {}'.format(request.headers.get('REFERER')))
     with open('index.html') as fp:
         return fp.read()
 
