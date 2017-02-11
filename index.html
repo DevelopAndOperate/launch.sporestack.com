@@ -36,6 +36,7 @@ var uuid = uuid4();
 </p>
 
 <script>
+first_pay_launched = false;
 function get_profile() {
     clearbitcoin();
     var description_element = document.getElementById('description');
@@ -48,7 +49,11 @@ function get_profile() {
         profile = profile_request.response;
         window.location.hash = profile['name'];
         description_element.innerHTML = markdown.toHTML(profile['description']);
-        pay();
+        /* Yuck. */
+        if (first_pay_launched === false) {
+            first_pay_launched = true;
+            pay();
+        }
     }
     description_element.innerHTML = 'Updating...';
     profile_request.send();
@@ -121,6 +126,7 @@ Days to live: <input id="days" type="number" value="1" min="1" max="28" onchange
 </div>
 
 <script>
+pay_stopped = false;
 old_satoshis = 0;
 var mimetype;
 var every_other = true;
@@ -137,6 +143,10 @@ function clearbitcoin() {
     element.innerHTML = 'Updating...';
     /* Force a refresh. */
     old_satoshis = 0;
+    if (pay_stopped === true) {
+        pay_stopped = false;
+        pay();
+    }
 }
 
 function launched_servers() {
@@ -174,7 +184,15 @@ function save_server(launched_server) {
     launched_servers();
 }
 
+function paid_blackout() {
+    /* Call this once paid to blank out options and prevent clearbitcoin(); from being called and restarting pay loop. */
+    document.getElementById('dcid').disabled = true;
+    document.getElementById('days').disabled = true;
+    document.getElementById('profile').disabled = true;
+}
+
 function pay() {
+    console.log('In pay');
     var dcid_element = document.getElementById('dcid');
     var options = {};
     options['unique'] = uuid;
@@ -190,23 +208,35 @@ function pay() {
     request.responseType = "json";
     request.onload = function() {
         if (request.status != 200) {
-            element.innerHTML = request.statusText;
-            setTimeout(function() { pay(); }, 3000);
+            /* Most likely that we will hit this if out of capacity in a region. */
+            /* Debatable if we should auto-retry or not... */
+            element.innerHTML = request.statusText + "<br/><b>Likely out of capacity. Try a different datacenter.</b>";
+            pay_stopped = true;
             return;
         }
         if (request.response.hostname === null) {
             if (request.response.payment_status === false) {
                 var bitcoin_uri = ('bitcoin:' + request.response.address + '?amount=' + sb.toBitcoin(request.response.satoshis));
                 if (old_satoshis != request.response.satoshis) {
-                    element.innerHTML = ('<h3>Pay with Bitcoin</h3><a href="' + bitcoin_uri + '"><div id="qr"></div></a>');
-                    new QRCode(document.getElementById("qr"), bitcoin_uri);
-                    old_satoshis = request.response.satoshis;
+                    /* Redundant h3 :-/ */
+                    if (old_satoshis == 0) {
+                        element.innerHTML = ('<h3>Pay with Bitcoin</h3><a href="' + bitcoin_uri + '"><div id="qr"></div></a>');
+                        new QRCode(document.getElementById("qr"), bitcoin_uri);
+                        old_satoshis = request.response.satoshis;
+                    } else {
+                        /* We don't want to keep receiving requests if someone leaves their browser open for days on the page. */
+                        element.innerHTML = '<h3>Pay with Bitcoin</h3><input type="button" onclick="clearbitcoin();" value="Refresh payment">';
+                        pay_stopped = true;
+                        return;
+                    }
                 }
             } else {
+                /* Setting pay_stopped doesn't really matter now. Bad variable name. */
+                paid_blackout();
                 element.innerHTML = 'Payment received. Processing...';
             }
-            /* Try again in 5 seconds. */
-            setTimeout(function() { pay(); }, 5000);
+            /* Try again in 3 seconds. */
+            setTimeout(pay, 3000);
         } else {
             launched_server = {
                                "hostname": request.response.hostname,
@@ -219,6 +249,7 @@ function pay() {
                 save_server(launched_server);
             } else {
                 element.innerHTML = 'Server created. (Will take about two minutes. Don\'t refresh or leave this page!) Booting.';
+                /* Sleeping 30 seconds at first because it will take at least that long. */
                 setTimeout(function() { launch(uuid, profile['name']); }, 30000);
             }
         }
