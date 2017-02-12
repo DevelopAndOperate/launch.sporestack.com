@@ -17,6 +17,8 @@ tar -czf - .  | sporestack ssh $node --command 'tar -xzvf - -C /root/service'
 
 sporestack ssh $node --command 'cd /root/service; pip3 install -r requirements.txt'
 
+echo "Installing Datadog agent"
+
 sporestack ssh $node --command "DD_API_KEY=$DD_API_KEY sh -c \"\$(curl -L https://raw.githubusercontent.com/DataDog/dd-agent/master/packaging/datadog-agent/source/setup_agent.sh | sed s/wait/kill\ -9/)\""
 
 sporestack ssh $node --command '/etc/rc.local'
@@ -32,4 +34,4 @@ sporestack ssh $node --command '/root/audit.sh'
 # 1 hour + at may be 5 minutes delayed. Means TTLs should be 1 hour or less.
 echo 'service gdnsd stop' | sporestack ssh $node --command 'at -t $(date -j -f %s '$(($(sporestack node_info $node --attribute end_of_life) - 3900))' +%Y%m%d%H%M)'
 
-echo Finished.
+echo $node

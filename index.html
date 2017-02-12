@@ -14,8 +14,6 @@
 </head>
 <body>
 
-<a target="_blank" href="https://github.com/sporestack/launch.sporestack.com"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/365986a132ccd6a44c23a9169022c0b5c890c387/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png"></a>
-
 <div class="container">
 <h1><img style="margin:auto;display:block;max-width:100%;height:auto" src="/static/sporestack.png" alt="SporeStack"/></h1>
 <center><h2>SporeStack Web Launcher</h2></center>
@@ -34,58 +32,6 @@ var uuid = uuid4();
     Updating...
     </div>
 </p>
-
-<script>
-first_pay_launched = false;
-function get_profile() {
-    clearbitcoin();
-    var description_element = document.getElementById('description');
-    var profile_element = document.getElementById('profile');
-    var profile_name = profile_element.options[profile_element.selectedIndex].value;
-    var profile_request = new XMLHttpRequest();
-    profile_request.open("get", "https://sporestack.com/launch/" + profile_name + ".json", true);
-    profile_request.responseType = "json";
-    profile_request.onload = function() {
-        profile = profile_request.response;
-        window.location.hash = profile['name'];
-        description_element.innerHTML = markdown.toHTML(profile['description']);
-        /* Yuck. */
-        if (first_pay_launched === false) {
-            first_pay_launched = true;
-            pay();
-        }
-    }
-    description_element.innerHTML = 'Updating...';
-    profile_request.send();
-}
-
-function launch_optionator() {
-    var launch_request = new XMLHttpRequest();
-    launch_request.open("get", "https://sporestack.com/launch/index.json", true);
-    launch_request.responseType = "json";
-    var desired_profile = null;
-    if (window.location.hash) {
-        /* Strip off # */
-        desired_profile = window.location.hash.substring(1);
-    }
-    launch_request.onload = function() {
-        var options = "<select id='profile' onchange='get_profile();'>";
-        var selected = null;
-        for (profile in launch_request.response) {
-            if (launch_request.response[profile]['name'] === desired_profile) {
-                selected = 'selected="selected"'
-            }
-            options += '<option value=' + launch_request.response[profile]['name'] + ' ' + selected + '>' + launch_request.response[profile]['human_name'] + '</option>';
-            selected = null;
-        }
-        options += '</select>'
-        var element = document.getElementById('profile_options');
-        element.innerHTML = options;
-        get_profile();
-    };
-    launch_request.send();
-}
-</script>
 
 <h3>Datacenter</h3>
 <p>
@@ -126,7 +72,7 @@ Days to live: <input id="days" type="number" value="1" min="1" max="28" onchange
 </div>
 
 <script>
-pay_stopped = false;
+pay_stopped = true;
 old_satoshis = 0;
 var mimetype;
 var every_other = true;
@@ -134,6 +80,58 @@ var node = {};
 var file;
 ready = false;
 paid = false;
+profile = false;
+old_json_options = false;
+options_changed = false;
+
+function get_profile() {
+    console.log('In get_profile');
+    profile = false;
+    clearbitcoin();
+    var description_element = document.getElementById('description');
+    var profile_element = document.getElementById('profile');
+    var profile_name = profile_element.options[profile_element.selectedIndex].value;
+    var profile_request = new XMLHttpRequest();
+    profile_request.open("get", "https://sporestack.com/launch/" + profile_name + ".json", true);
+    profile_request.responseType = "json";
+    /* Set profile to false so we know to wait down in pay(); */
+    profile_request.onload = function() {
+        clearbitcoin();
+        console.log('In onload');
+        profile = profile_request.response;
+        window.location.hash = profile['name'];
+        description_element.innerHTML = markdown.toHTML(profile['description']);
+    }
+    description_element.innerHTML = 'Updating...';
+    profile_request.send();
+}
+
+function launch_optionator() {
+    var launch_request = new XMLHttpRequest();
+    launch_request.open("get", "https://sporestack.com/launch/index.json", true);
+    launch_request.responseType = "json";
+    var desired_profile = null;
+    if (window.location.hash) {
+        /* Strip off # */
+        desired_profile = window.location.hash.substring(1);
+    }
+    launch_request.onload = function() {
+        var options = "<select id='profile' onchange='get_profile();'>";
+        var selected = null;
+        for (profile in launch_request.response) {
+            if (launch_request.response[profile]['name'] === desired_profile) {
+                selected = 'selected="selected"'
+            }
+            options += '<option value=' + launch_request.response[profile]['name'] + ' ' + selected + '>' + launch_request.response[profile]['human_name'] + '</option>';
+            selected = null;
+        }
+        options += '</select>'
+        var element = document.getElementById('profile_options');
+        element.innerHTML = options;
+        get_profile();
+    };
+    launch_request.send();
+}
 
 
 /* Fixme */
@@ -143,6 +141,8 @@ function clearbitcoin() {
     element.innerHTML = 'Updating...';
     /* Force a refresh. */
     old_satoshis = 0;
+    options_changed = true;
+    option_blackout();
     if (pay_stopped === true) {
         pay_stopped = false;
         pay();
@@ -184,18 +184,24 @@ function save_server(launched_server) {
     launched_servers();
 }
 
-function paid_blackout() {
+function option_blackout(disabled = true) {
     /* Call this once paid to blank out options and prevent clearbitcoin(); from being called and restarting pay loop. */
-    document.getElementById('dcid').disabled = true;
-    document.getElementById('days').disabled = true;
-    document.getElementById('profile').disabled = true;
+    document.getElementById('dcid').disabled = disabled;
+    document.getElementById('days').disabled = disabled;
+    document.getElementById('profile').disabled = disabled;
 }
 
 function pay() {
     console.log('In pay');
-    var dcid_element = document.getElementById('dcid');
+    if (profile === false) {
+        console.log('Waiting on profile. Bailing out.');
+        /* Try again in 2 seconds. */
+        setTimeout(pay, 2000);
+        return;
+    }
     var options = {};
     options['unique'] = uuid;
+    var dcid_element = document.getElementById('dcid');
     options['dcid'] = parseInt(dcid_element.options[dcid_element.selectedIndex].value);
     options['days'] = parseInt(document.getElementById('days').value);
     options['osid'] = parseInt(profile['osid']);
@@ -214,6 +220,13 @@ function pay() {
             pay_stopped = true;
             return;
         }
+        if (options_changed === true) {
+            console.log('Options out of date. Bailing out.');
+            /* Try again in 1 second. */
+            setTimeout(pay, 1000);
+            return;
+        }
+        old_json_options = json_options;
         if (request.response.hostname === null) {
             if (request.response.payment_status === false) {
                 var bitcoin_uri = ('bitcoin:' + request.response.address + '?amount=' + sb.toBitcoin(request.response.satoshis));
@@ -232,7 +245,7 @@ function pay() {
                 }
             } else {
                 /* Setting pay_stopped doesn't really matter now. Bad variable name. */
-                paid_blackout();
+                option_blackout();
                 element.innerHTML = 'Payment received. Processing...';
             }
             /* Try again in 3 seconds. */
@@ -254,7 +267,10 @@ function pay() {
             }
         }
     }
-    request.send(JSON.stringify(options));
+    option_blackout(disabled=false);
+    options_changed = false;
+    json_options = JSON.stringify(options);
+    request.send(json_options);
 }
 
 function launch(uuid, profile) {
