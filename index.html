@@ -220,6 +220,9 @@ function pay() {
             pay_stopped = true;
             return;
         }
+        if (request.response.deprecated != false) {
+            console.log(request.response.deprecated);
+        }
         if (options_changed === true) {
             console.log('Options out of date. Bailing out.');
             /* Try again in 1 second. */
