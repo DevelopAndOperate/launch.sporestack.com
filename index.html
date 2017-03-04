@@ -41,8 +41,9 @@ var uuid = uuid4();
 </p>
 
 <script>
+    endpoint = "https://sporestack.com";
     var request = new XMLHttpRequest();
-    request.open("get", "https://sporestack.com/node/options", true);
+    request.open("get", endpoint + "/node/options", true);
     request.responseType = "json";
     request.onload = function() {
         var options = "<select id='dcid' onchange='clearbitcoin();'>";
@@ -92,7 +93,7 @@ function get_profile() {
     var profile_element = document.getElementById('profile');
     var profile_name = profile_element.options[profile_element.selectedIndex].value;
     var profile_request = new XMLHttpRequest();
-    profile_request.open("get", "https://sporestack.com/launch/" + profile_name + ".json", true);
+    profile_request.open("get", endpoint + "/launch/" + profile_name + ".json", true);
     profile_request.responseType = "json";
     /* Set profile to false so we know to wait down in pay(); */
     profile_request.onload = function() {
@@ -108,7 +109,7 @@ function get_profile() {
 
 function launch_optionator() {
     var launch_request = new XMLHttpRequest();
-    launch_request.open("get", "https://sporestack.com/launch/index.json", true);
+    launch_request.open("get", endpoint + "/launch/index.json", true);
     launch_request.responseType = "json";
     var desired_profile = null;
     if (window.location.hash) {
@@ -200,7 +201,7 @@ function pay() {
         return;
     }
     var options = {};
-    options['unique'] = uuid;
+    options['uuid'] = uuid;
     var dcid_element = document.getElementById('dcid');
     options['dcid'] = parseInt(dcid_element.options[dcid_element.selectedIndex].value);
     options['days'] = parseInt(document.getElementById('days').value);
@@ -209,7 +210,7 @@ function pay() {
     options['startupscript'] = profile['startupscript'];
     options['sshkey'] = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDSs1NOWo6fOXko5I6tgrZEktNuZcFYNSGIpp1MPEyPgTgDSI8JQQ/bm76DIs6DUCrhqcKjAn28koN5Uyj9Pb0OrUwNDjOUhQ//6r/5F/pAKUcQ/3uk7XxAPOx+fVCYR9zwuNNGysExMUyUSGTYhZ2cfE+65eaC3Esbne5M6J7Ul7HP8CCBfeICqVvrIJcopgacD069sxtIdxWOyN56N2FktlV4C2YlQsxf1SJvqo193zlk2yagdUHleSkmP/IqW8yMNdltOAelYNd9VCfW8ROSA0yIj/zm5NZ7JdMoBa6In+gNUkNf4R7GHqHuEcCRELvV4ePlWEY6Oc+6b7aLN4Yj';
     var request = new XMLHttpRequest();
-    request.open("post", "https://sporestack.com/node", true);
+    request.open("post", endpoint + "/node", true);
     request.setRequestHeader("Content-type", "application/json");
     request.responseType = "json";
     request.onload = function() {
