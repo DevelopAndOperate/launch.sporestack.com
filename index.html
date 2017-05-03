@@ -11,6 +11,7 @@
   <script src="/static/index.bundle.js"></script>
   <script src="/static/markdown.js"></script>
   <script src="/static/FileSaver.min.js"></script>
+  <script src="/static/bitcoin-fiat/bitcoin-fiat.js"></script>
 </head>
 <body>
 
@@ -237,7 +238,8 @@ function pay() {
                 if (old_satoshis != request.response.satoshis) {
                     /* Redundant h3 :-/ */
                     if (old_satoshis == 0) {
-                        element.innerHTML = ('<h3>Pay with Bitcoin</h3><a href="' + bitcoin_uri + '"><div id="qr"></div></a>');
+                        element.innerHTML = ('<h3>Pay with Bitcoin</h3><a href="' + bitcoin_uri + '"><div id="qr"></div></a>$<span id="usd">(Pending)</span>~ (USD), <span id="satoshis">' + request.response.satoshis + '</span> Satoshis');
+                        BitcoinFiat(request.response.satoshis, 'usd');
                         new QRCode(document.getElementById("qr"), bitcoin_uri);
                         old_satoshis = request.response.satoshis;
                     } else {

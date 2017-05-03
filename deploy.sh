@@ -7,7 +7,7 @@ DAYS=7
 DCID=1 # New Jersey
 
 # Returns hostname
-node=$(sporestack spawn --startupscript deploy/startup.sh --group launch.sporestack.com --dcid $DCID --days $DAYS $1 $2)
+node=$(sporestack spawn --startupscript deploy/startup.sh --group launch.sporestack.com --dcid $DCID --days $DAYS $*)
 
 echo $node
 

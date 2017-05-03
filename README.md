@@ -7,3 +7,10 @@ Prior to this, SporeStack has been all CLI driven. Tying it in with Javascript h
 This is a stateless setup. Don't reload the page when you are buying, either.
 
 Original content released into the public domain, but there's a ton of Javascript that isn't original.
+
+SSL: https://github.com/diafygi/letsencrypt-nosudo
+
+# Note
+
+```git submodule init
+git submodule update```
