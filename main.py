@@ -66,8 +66,9 @@ def launch(uuid,
     Launch a SporeStack ndoe with a given profile.
     """
     pulse('launch.hit')
+    SporeStack = sporestack.SporeStack()
     try:
-        settings = sporestack.node_get_launch_profile(profile)
+        settings = SporeStack.node_get_launch_profile(profile)
         postlaunch = settings['postlaunch']
         pulse('launch.have_profile')
     except:
