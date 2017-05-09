@@ -2,6 +2,7 @@
 
 set -e
 
+# Kind of duplicated with renew.sh's $DAYS
 DAYS=7
 
 DCID=1 # New Jersey
@@ -15,7 +16,7 @@ echo $node
 
 tar -czf - .  | sporestack ssh $node --command 'tar -xzvf - -C /root/service'
 
-sporestack ssh $node --command 'cd /root/service; pip3 install -r requirements.txt'
+sporestack ssh $node --command 'cd /root/service; pip3 install -r requirements.txt; pip install walkingliberty'
 
 echo "Installing Datadog agent"
 
@@ -32,6 +33,8 @@ sporestack ssh $node --command '/root/audit.sh'
 # We do this last in case this is a 0 day server. Risk of it breaking audit.
 # But... we should make sure that graceful suicide is working in some other way.
 # 1 hour + at may be 5 minutes delayed. Means TTLs should be 1 hour or less.
-echo 'service gdnsd stop' | sporestack ssh $node --command 'at -t $(date -j -f %s '$(($(sporestack node_info $node --attribute end_of_life) - 3900))' +%Y%m%d%H%M)'
+# echo 'service gdnsd stop' | sporestack ssh $node --command 'at -t $(date -j -f %s '$(($(sporestack node_info $node --attribute end_of_life) - 3900))' +%Y%m%d%H%M)'
+
+sporestack ssh $node --command 'sh /root/service/renew.sh'
 
 echo $node

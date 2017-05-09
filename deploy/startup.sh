@@ -25,7 +25,7 @@ progress 'Starting pkg upgrade'
 pkg upgrade
 
 progress 'Starting pkg install'
-pkg install ca_root_nss gdnsd2 pwgen curl python3
+pkg install ca_root_nss gdnsd2 pwgen curl python3 py27-pip
 chmod 700 /root
 
 python3 -m ensurepip
