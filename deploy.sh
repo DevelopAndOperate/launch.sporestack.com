@@ -5,10 +5,8 @@ set -e
 # Kind of duplicated with renew.sh's $DAYS
 DAYS=7
 
-DCID=1 # New Jersey
-
 # Returns hostname
-node=$(sporestack spawn --startupscript deploy/startup.sh --group launch.sporestack.com --dcid $DCID --days $DAYS $*)
+node=$(sporestack spawn --startupscript deploy/startup.sh --group launch.sporestack.com --days $DAYS $*)
 
 echo $node
 
