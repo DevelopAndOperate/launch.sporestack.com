@@ -38,15 +38,13 @@ def static():
     return('static',)
 
 
-@hug.get('/.well-known/acme-challenge/{challenge}',
-         output=hug.output_format.html)
-def acmechallenge(challenge):
+@hug.static('/.well-known')
+def acmechallenge():
     """
     Helper for LetsEncrypt SSL.
     """
     pulse('acme-challenge')
-    with open('ssl/challenge') as fp:
-        return fp.read()
+    return('acmewebroot/.well-known',)
 
 
 @hug.get('/', output=hug.output_format.html)
