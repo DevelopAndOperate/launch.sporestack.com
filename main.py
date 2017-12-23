@@ -69,7 +69,7 @@ def launch(uuid,
         settings = SporeStack.node_get_launch_profile(profile)
         postlaunch = settings['postlaunch']
         pulse('launch.have_profile')
-    except:
+    except Exception:
         pulse('launch.bad_profile')
         response.status = HTTP_403
         return 'Profile doesn\'t exist.'
@@ -83,7 +83,7 @@ def launch(uuid,
         pulse('launch.tryingsocket')
         socket = create_connection((hostname, 22), timeout=2)
         socket.close()
-    except:
+    except Exception:
         pulse('launch.not_ready')
         return output
     pulse('launch.made_it_past_socket')

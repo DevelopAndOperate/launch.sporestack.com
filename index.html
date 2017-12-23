@@ -26,6 +26,13 @@ var uuid = uuid4();
 
 <script src="/static/qrcode.min.js"></script>
 
+<h3>Currency</h3>
+<p>
+    <select id='currency' onchange='clearbitcoin();'>
+        <option value='bch'>Bitcoin Cash</option>
+        <option value='btc'>Bitcoin</option>
+    </select>
+</p>
 
 <h3>Launch profile</h3>
 <p>
@@ -209,6 +216,7 @@ function pay() {
     options['osid'] = parseInt(profile['osid']);
     options['flavor'] = parseInt(profile['flavor']);
     options['startupscript'] = profile['startupscript'];
+    options['currency'] = document.getElementById('currency').value;
     options['sshkey'] = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDSs1NOWo6fOXko5I6tgrZEktNuZcFYNSGIpp1MPEyPgTgDSI8JQQ/bm76DIs6DUCrhqcKjAn28koN5Uyj9Pb0OrUwNDjOUhQ//6r/5F/pAKUcQ/3uk7XxAPOx+fVCYR9zwuNNGysExMUyUSGTYhZ2cfE+65eaC3Esbne5M6J7Ul7HP8CCBfeICqVvrIJcopgacD069sxtIdxWOyN56N2FktlV4C2YlQsxf1SJvqo193zlk2yagdUHleSkmP/IqW8yMNdltOAelYNd9VCfW8ROSA0yIj/zm5NZ7JdMoBa6In+gNUkNf4R7GHqHuEcCRELvV4ePlWEY6Oc+6b7aLN4Yj';
     var request = new XMLHttpRequest();
     request.open("post", endpoint + "/node", true);
@@ -234,12 +242,21 @@ function pay() {
         old_json_options = json_options;
         if (request.response.hostname === null) {
             if (request.response.payment_status === false) {
-                var bitcoin_uri = ('bitcoin:' + request.response.address + '?amount=' + sb.toBitcoin(request.response.satoshis));
+                if (options['currency'] == 'bch') {
+                    var uri_prefix = 'bitcoincash:';
+                    var currency_name = 'Bitcoin Cash';
+                    var ticker = 'BCHUSD';
+                } else if (options['currency'] == 'btc') {
+                    var uri_prefix = 'bitcoin:';
+                    var currency_name = 'Bitcoin';
+                    var ticker = 'BTCUSD';
+                }
+                var bitcoin_uri = (uri_prefix + request.response.address + '?amount=' + sb.toBitcoin(request.response.satoshis));
                 if (old_satoshis != request.response.satoshis) {
                     /* Redundant h3 :-/ */
                     if (old_satoshis == 0) {
-                        element.innerHTML = ('<h3>Pay with Bitcoin</h3><a href="' + bitcoin_uri + '"><div id="qr"></div></a>$<span id="usd">(Pending)</span>~ (USD), <span id="satoshis">' + request.response.satoshis + '</span> Satoshis');
-                        BitcoinFiat(request.response.satoshis, 'usd');
+                        element.innerHTML = ('<h3>Pay with ' + currency_name + '</h3><a href="' + bitcoin_uri + '"><div id="qr"></div></a>$<span id="usd">(Pending)</span>~ (USD), <span id="satoshis">' + request.response.satoshis + '</span> Satoshis');
+                        BitcoinFiat(request.response.satoshis, ticker, 'usd');
                         new QRCode(document.getElementById("qr"), bitcoin_uri);
                         old_satoshis = request.response.satoshis;
                     } else {
