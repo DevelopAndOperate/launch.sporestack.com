@@ -211,7 +211,7 @@ function pay() {
     var options = {};
     options['uuid'] = uuid;
     var dcid_element = document.getElementById('dcid');
-    options['dcid'] = parseInt(dcid_element.options[dcid_element.selectedIndex].value);
+    options['dcid'] = parseInt(dcid_element.options[dcid_element.selectedIndex].value) || dcid_element.options[dcid_element.selectedIndex].value;
     options['days'] = parseInt(document.getElementById('days').value);
     options['osid'] = parseInt(profile['osid']);
     options['flavor'] = parseInt(profile['flavor']);
