@@ -211,6 +211,7 @@ function pay() {
     var options = {};
     options['uuid'] = uuid;
     var dcid_element = document.getElementById('dcid');
+    /* DCID is parsed to integer if a non-AUTO region is selected but stored as a string if an AUTO region is selected*/
     options['dcid'] = parseInt(dcid_element.options[dcid_element.selectedIndex].value) || dcid_element.options[dcid_element.selectedIndex].value;
     options['days'] = parseInt(document.getElementById('days').value);
     options['osid'] = parseInt(profile['osid']);
